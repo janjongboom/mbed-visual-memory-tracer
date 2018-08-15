@@ -1,0 +1,28 @@
+{
+  "name": "mbed-visual-memory-tracer",
+  "version": "0.0.1",
+  "description": "Visual memory tracer for Mbed OS applications",
+  "main": "tracer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janjongboom/mbed-visual-memory-tracer.git"
+  },
+  "keywords": [
+    "memory",
+    "tracer",
+    "mbed"
+  ],
+  "author": "Jan Jongboom <janjonggboom@gmail.com>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/janjongboom/mbed-visual-memory-tracer/issues"
+  },
+  "homepage": "https://github.com/janjongboom/mbed-visual-memory-tracer#readme",
+  "dependencies": {
+    "es6-promisify": "^6.0.0",
+    "serialport": "^6.2.2"
+  }
+}
