@@ -38,4 +38,9 @@ Preferably use a separate UART port for the trace information.
 
 ## Run the tracer
 
+Set your serial port and baud rate in `tracer.js`, then run:
 
+1. `npm install`
+1. `node tracer.js`
+
+To get the symbols from your application, run `arm-none-eabi-objdump -S path/to/your.elf`. Will automate this in the future.
