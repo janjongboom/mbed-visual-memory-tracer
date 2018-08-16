@@ -7,6 +7,12 @@ Work in progress.
 Your application needs memory tracing enabled. To enable this in your application:
 
 1. Set a high serial baud rate to avoid a large slowdown in your application.
+1. Add the [visual memory tracer library](https://github.com/janjongboom/mbed-visual-memory-tracer-lib) to your project:
+
+    ```
+    $ mbed add https://github.com/janjongboom/mbed-visual-memory-tracer-lib
+    ```
+
 1. Enable the following macros in your `mbed_app.json`:
 
     ```json
@@ -18,20 +24,21 @@ Your application needs memory tracing enabled. To enable this in your applicatio
     }
     ```
 
-1. Add a marker to show when the application restarts. This is the initialisation code for the tracer, which shows the current available heap usage. As the first line of your application, add:
+1. Initialize the tracer library by placing initialization code in *both* `mbed_main` and `main`:
 
     ```cpp
     #include "mbed.h"
-    #include "mbed_mem_trace.h"
+    #include "mbed_vis_mem_tracer.h"
+
+    extern "C" void mbed_main() {
+        mbed_vismem_preinit();
+    }
 
     int main() {
-        mbed_stats_heap_t heap_stats;
-        mbed_stats_heap_get(&heap_stats);
-
-        printf("#visual-memory-tracer-init:%lu:%lu\r\n", heap_stats.current_size, heap_stats.reserved_size);
-        mbed_mem_trace_set_callback(mbed_mem_trace_default_callback);
+        mbed_vismem_init();
 
         // ... rest of your application
+    }
     ```
 
 Preferably use a separate UART port for the trace information.

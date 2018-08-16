@@ -4,6 +4,20 @@ const TracerSerialDevice = require('./tracer-serial-device');
     let device;
 
     try {
+
+        function getAllPointersByCount() {
+            if (!device) return {};
+            let ptrs = device.getActivePointers();
+            return Object.keys(ptrs).reduce((curr, p) => {
+                if (!curr[ptrs[p].loc]) {
+                    curr[ptrs[p].loc] = { count: 0, size: ptrs[p].size };
+                }
+                curr[ptrs[p].loc].count++;
+
+                return curr;
+            }, {});
+        }
+
         // make sure to deinit() when quit'ing this process
         let quitImmediately = false;
         let sigintHandler;
@@ -12,14 +26,17 @@ const TracerSerialDevice = require('./tracer-serial-device');
             if (quitImmediately) process.exit(1);
 
             try {
-                if (device) await device.deinit();
+                if (device) {
+                    console.log(getAllPointersByCount());
+                    await device.deinit();
+                }
             } catch (ex) {}
             process.exit(1);
         });
         process.on('uncaughtException', sigintHandler);
         process.on('unhandledRejection', sigintHandler);
 
-        let path = '/dev/tty.usbmodem1432';
+        let path = '/dev/tty.usbmodem1462';
         let baud = 115200;
 
         console.log('Connecting to', path, baud);
@@ -42,15 +59,8 @@ const TracerSerialDevice = require('./tracer-serial-device');
 
             if (data.toString('utf-8').indexOf('Error') > -1 && first) {
                 first = false;
-                let ptrs = device.getActivePointers();
-                console.log(Object.keys(ptrs).reduce((curr, p) => {
-                    if (!curr[ptrs[p].loc]) {
-                        curr[ptrs[p].loc] = { count: 0, size: ptrs[p].size };
-                    }
-                    curr[ptrs[p].loc].count++;
 
-                    return curr;
-                }, {}));
+                console.log(getAllPointersByCount());
                 clearInterval(hz);
             }
         });

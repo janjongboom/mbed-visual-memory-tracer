@@ -64,10 +64,10 @@ class TracerSerialDevice extends EventEmitter {
                 delete this.allocs[ptr];
             }
             else {
-                // que...?
-                if (ptr !== '0x0') {
-                    console.warn(CON_PR, 'Free for untracked pointer', ptr, l);
-                }
+                // free on null pointer is valid
+                if (ptr === '0x0') return;
+
+                console.warn(CON_PR, 'Free for untracked pointer', ptr, l);
             }
         }
         else if (l.indexOf('#r:') === 0) {
