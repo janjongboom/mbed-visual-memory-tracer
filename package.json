@@ -23,6 +23,9 @@
   "homepage": "https://github.com/janjongboom/mbed-visual-memory-tracer#readme",
   "dependencies": {
     "es6-promisify": "^6.0.0",
-    "serialport": "^6.2.2"
+    "express": "^4.16.3",
+    "hbs": "^4.0.1",
+    "serialport": "^6.2.2",
+    "socket.io": "^2.1.1"
   }
 }

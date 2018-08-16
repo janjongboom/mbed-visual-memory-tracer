@@ -1,10 +1,23 @@
 const TracerSerialDevice = require('./tracer-serial-device');
+const express = require('express');
+const app = express();
+const server = require('http').Server(app);
+const io = require('socket.io')(server);
+const hbs = require('hbs');
+const promisify = require('es6-promisify').promisify;
+
+hbs.registerPartials(__dirname + '/views/partials');
+app.use(express.static(__dirname + '/public'));
+app.set('view engine', 'html');
+app.set('views', __dirname + '/views');
+app.engine('html', hbs.__express);
+
+const CON_PR = '\x1b[32m[TRCR]\x1b[0m';
 
 (async function() {
     let device;
 
     try {
-
         function getAllPointersByCount() {
             if (!device) return {};
             let ptrs = device.getActivePointers();
@@ -27,7 +40,7 @@ const TracerSerialDevice = require('./tracer-serial-device');
 
             try {
                 if (device) {
-                    console.log(getAllPointersByCount());
+                    console.log(CON_PR, getAllPointersByCount());
                     await device.deinit();
                 }
             } catch (ex) {}
@@ -39,30 +52,36 @@ const TracerSerialDevice = require('./tracer-serial-device');
         let path = '/dev/tty.usbmodem1462';
         let baud = 115200;
 
-        console.log('Connecting to', path, baud);
+        console.log(CON_PR, 'Connecting to', path, baud);
         device = new TracerSerialDevice(path, baud);
         await device.init();
-        console.log('Connected');
+        console.log(CON_PR, 'Connected');
+
+        await promisify(server.listen.bind(server))(process.env.PORT || 5199, process.env.HOST || '0.0.0.0');
+        console.log(CON_PR, 'Server listening on port ' + (process.env.PORT || 5199));
 
         device.on('init', () => {
-            console.log('Initialized');
+            console.log(CON_PR, 'Initialized', device.allocs);
+
+            io.sockets.emit('init', {
+                allocated: device.allocated,
+                reserved: device.reserved
+            });
+
+            device.on('malloc', data => io.sockets.emit('malloc', data));
+            device.on('calloc', data => io.sockets.emit('calloc', data));
+            device.on('realloc', data => io.sockets.emit('realloc', data));
+            device.on('free', data => io.sockets.emit('free', data));
         });
 
-        let hz = setInterval(() => {
-            console.log('Heap size', device.allocated);
-        }, 1000);
-
-        let first = true;
-
         device.on('data', data => {
-            console.log('LOG', data.toString('utf-8'));
+            console.log(CON_PR, 'LOG', data.toString('utf-8'));
 
-            if (data.toString('utf-8').indexOf('Error') > -1 && first) {
-                first = false;
+            io.sockets.emit('data', data.toString('utf-8'));
+        });
 
-                console.log(getAllPointersByCount());
-                clearInterval(hz);
-            }
+        app.get('/', (req, res, next) => {
+            res.render('index', { path: path, baud: baud });
         });
     }
     catch (ex) {

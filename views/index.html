@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Visual Memory Tracer for Mbed OS 5</title>
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,300,600' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="/tracer.css">
+  <link rel="stylesheet" href="/xterm/xterm.css" />
+  <!--
+      (c) Jan Jongboom, 2018 - https://github.com/janjongboom/mbed-visual-memory-tracer
+  -->
+</head>
+
+<body>
+  <h1>Visual Memory Tracer</h1>
+  <p>
+      Path: {{path}}, baud: {{baud}} - <span id="connection-status">Waiting for initialization</span>
+  </p>
+
+  <div id="serial">
+    <!-- todo: this needs to be better, as it doesn't handle colors etc.
+          see the simulator on how to properly use it -->
+  </div>
+
+  <script src="/xterm/xterm.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // Here is how we connect back to the server
+    var socket = io.connect(location.origin);
+
+    var terminal = new Terminal();
+    terminal.open(document.querySelector('#serial'));
+
+    socket.on('data', function(data) {
+      terminal.write(data + '\r\n');
+    });
+
+    var allocs = {};
+    var _allocated = 0;
+    var _reserved = 0;
+
+    socket.on('init', function(evt) {
+      console.log('init', evt);
+      // allocated, reserved, allocs
+      document.querySelector('#connection-status').innerHTML = 'Initialized (<span id="heap-allocated"></span> / <span id="heap-reserved"></span>)';
+      document.querySelector('#heap-allocated').textContent = 0;
+      document.querySelector('#heap-reserved').textContent = evt.reserved;
+
+      _allocated = 0;
+      _reserved = evt.reserved;
+
+      allocs = {};
+    });
+
+    socket.on('malloc', function(evt) {
+      allocs[evt.ptr] = evt;
+      _allocated += evt.size;
+
+      if (document.querySelector('#heap-allocated')) {
+        document.querySelector('#heap-allocated').textContent = _allocated;
+      }
+    });
+
+    socket.on('calloc', function(evt) {
+      allocs[evt.ptr] = evt;
+      _allocated += evt.size;
+
+      if (document.querySelector('#heap-allocated')) {
+        document.querySelector('#heap-allocated').textContent = _allocated;
+      }
+    });
+
+    socket.on('free', function(evt) {
+      var untracked = false;
+      var size = 0;
+
+      console.log('free', evt.ptr, allocs[evt.ptr]);
+
+      if (allocs[evt.ptr]) {
+          size = allocs[evt.ptr].size;
+          _allocated -= size;
+          delete allocs[evt.ptr];
+      }
+      else {
+          console.warn('Free for untracked pointer', evt.ptr);
+      }
+
+      if (document.querySelector('#heap-allocated')) {
+        document.querySelector('#heap-allocated').textContent = _allocated;
+      }
+    });
+
+    socket.on('realloc', function(evt) {
+      if (allocs[evt.old_ptr]) {
+          _allocated -= allocs[evt.old_ptr].size;
+          delete allocs[evt.old_ptr];
+      }
+      else {
+          console.warn('Realloc for untracked pointer', evt.old_ptr);
+      }
+
+      allocs[evt.new_ptr] = evt;
+      _allocated += allocs[evt.new_ptr].size;
+
+      if (document.querySelector('#heap-allocated')) {
+        document.querySelector('#heap-allocated').textContent = _allocated;
+      }
+    });
+  </script>
+
+</body>
+</html>

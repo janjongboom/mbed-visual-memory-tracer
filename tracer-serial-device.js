@@ -3,7 +3,7 @@ const Readline = require('@serialport/parser-readline');
 const EventEmitter = require('events');
 const promisify = require('es6-promisify').promisify;
 
-const CON_PR = '[TRCR]';
+const CON_PR = '\x1b[34m[SERL]\x1b[0m';
 
 // This connects to the proprietary device over serial port
 class TracerSerialDevice extends EventEmitter {
@@ -33,6 +33,7 @@ class TracerSerialDevice extends EventEmitter {
             let [op, allocated, reserved] = l.split(/[\:;]/);
             this._allocated = Number(allocated);
             this._reserved = Number(reserved);
+            this.allocs = {};
             this._initialized = true;
             this.emit('init');
         }
@@ -46,6 +47,8 @@ class TracerSerialDevice extends EventEmitter {
             this.allocs[ptr] = { loc: loc, size: size };
 
             this._allocated += size;
+
+            this.emit('malloc', { ptr: ptr, loc: loc, size: size });
         }
         else if (l.indexOf('#c:') === 0) {
             // calloc
@@ -55,12 +58,19 @@ class TracerSerialDevice extends EventEmitter {
             this.allocs[ptr] = { loc: loc, size: size * items };
 
             this._allocated += size * items;
+
+            this.emit('calloc', { ptr: ptr, loc: loc, size: size * items });
         }
         else if (l.indexOf('#f:') === 0) {
             // free
             let [op, ret, loc, ptr] = l.split(/[\:;-]/);
+
+            let untracked = false;
+            let size = 0;
+
             if (this.allocs[ptr]) {
-                this._allocated -= this.allocs[ptr].size;
+                size = this.allocs[ptr].size;
+                this._allocated -= size;
                 delete this.allocs[ptr];
             }
             else {
@@ -68,7 +78,10 @@ class TracerSerialDevice extends EventEmitter {
                 if (ptr === '0x0') return;
 
                 console.warn(CON_PR, 'Free for untracked pointer', ptr, l);
+                untracked = true;
             }
+
+            this.emit('free', { loc: loc, ptr: ptr, size: size });
         }
         else if (l.indexOf('#r:') === 0) {
             let [op, new_ptr, loc, old_ptr, size] = l.split(/[\:;-]/);
@@ -83,6 +96,8 @@ class TracerSerialDevice extends EventEmitter {
 
             this.allocs[new_ptr] = { loc: loc, size: size };
             this._allocated += this.allocs[new_ptr].size;
+
+            this.emit('realloc', { new_ptr: new_ptr, loc: loc, old_ptr: old_ptr, new_size: new_size });
         }
     }
     async deinit() {
